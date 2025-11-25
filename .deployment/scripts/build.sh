@@ -111,13 +111,19 @@ echo "🧹 TEARDOWN PHASE: Cleanup"
 echo "=========================================="
 
 # Optional: Remove local image to save space
-read -p "Do you want to remove the local Docker image to free up space? (y/N): " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    docker rmi "${FULL_IMAGE_PATH}"
-    echo "✅ Local image removed"
+if [ -t 0 ]; then
+    # Interactive terminal - prompt user
+    read -p "Do you want to remove the local Docker image to free up space? (y/N): " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        docker rmi "${FULL_IMAGE_PATH}"
+        echo "✅ Local image removed"
+    else
+        echo "ℹ️  Local image retained"
+    fi
 else
-    echo "ℹ️  Local image retained"
+    # Non-interactive (CI/CD) - skip cleanup
+    echo "ℹ️  Non-interactive mode: Local image retained"
 fi
 
 echo ""

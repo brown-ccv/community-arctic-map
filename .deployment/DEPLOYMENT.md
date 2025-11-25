@@ -188,6 +188,11 @@ VITE_MAPBOX_ACCESS_TOKEN=your_actual_mapbox_token
 3. Update your local `frontend/.env` file
 4. Export this variable before building: `export VITE_MAPBOX_ACCESS_TOKEN=your_token`
 
+**⚠️ Security Note:** The Mapbox token is embedded in the frontend build during the Docker build process. This is a public token that will be visible in the client-side JavaScript. Ensure you:
+- Use a token with restricted scope (only map viewing, geocoding)
+- Set URL restrictions in Mapbox dashboard to limit token usage to your domain
+- Consider using Mapbox's token rotation if the token is exposed
+
 ### Deployment Environment Variables
 
 **👋 HUMAN INTERVENTION REQUIRED:** Export these variables in your shell before running deployment scripts:
@@ -436,11 +441,10 @@ Error: Cannot find module 'react'
 
 **Solution:**
 ```bash
-# The npm ci command may not have installed correctly
-# Try building with npm install instead
+# The npm ci command needs to include dev dependencies for the build step
 # Edit .deployment/Dockerfile line 15:
 # Change: RUN npm ci --only=production
-# To: RUN npm install --production=false
+# To: RUN npm ci
 ```
 
 #### Issue: Image push fails with authentication error

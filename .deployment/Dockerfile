@@ -11,8 +11,8 @@ WORKDIR /app/frontend
 # Copy frontend package files
 COPY frontend/package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install dependencies (including dev dependencies needed for build)
+RUN npm ci
 
 # Copy frontend source
 COPY frontend/ ./
@@ -71,74 +71,11 @@ COPY --from=backend-runtime /app/backend ./backend
 # Copy built frontend to nginx html directory
 COPY --from=frontend-builder /app/frontend/dist /usr/share/nginx/html
 
-# Create nginx configuration
-RUN echo 'server { \n\
-    listen 8080; \n\
-    server_name _; \n\
-    \n\
-    # Serve frontend static files \n\
-    location / { \n\
-        root /usr/share/nginx/html; \n\
-        try_files $uri $uri/ /index.html; \n\
-    } \n\
-    \n\
-    # Proxy API requests to main backend service \n\
-    location /api/ { \n\
-        proxy_pass http://127.0.0.1:8000; \n\
-        proxy_http_version 1.1; \n\
-        proxy_set_header Upgrade $http_upgrade; \n\
-        proxy_set_header Connection "upgrade"; \n\
-        proxy_set_header Host $host; \n\
-        proxy_set_header X-Real-IP $remote_addr; \n\
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; \n\
-        proxy_set_header X-Forwarded-Proto $scheme; \n\
-    } \n\
-    \n\
-    # Proxy shapefile download requests to zip_downloads service \n\
-    location /api/shapefiles/ { \n\
-        proxy_pass http://127.0.0.1:8001/api/shapefiles/; \n\
-        proxy_http_version 1.1; \n\
-        proxy_set_header Host $host; \n\
-        proxy_set_header X-Real-IP $remote_addr; \n\
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; \n\
-        proxy_set_header X-Forwarded-Proto $scheme; \n\
-    } \n\
-} \n' > /etc/nginx/sites-available/default
+# Copy nginx configuration
+COPY .deployment/nginx.conf /etc/nginx/sites-available/default
 
-# Create supervisor configuration
-RUN echo '[supervisord] \n\
-nodaemon=true \n\
-logfile=/dev/stdout \n\
-logfile_maxbytes=0 \n\
-\n\
-[program:nginx] \n\
-command=nginx -g "daemon off;" \n\
-autostart=true \n\
-autorestart=true \n\
-stdout_logfile=/dev/stdout \n\
-stdout_logfile_maxbytes=0 \n\
-stderr_logfile=/dev/stderr \n\
-stderr_logfile_maxbytes=0 \n\
-\n\
-[program:main-api] \n\
-command=uvicorn main:app --host 0.0.0.0 --port 8000 \n\
-directory=/app/backend \n\
-autostart=true \n\
-autorestart=true \n\
-stdout_logfile=/dev/stdout \n\
-stdout_logfile_maxbytes=0 \n\
-stderr_logfile=/dev/stderr \n\
-stderr_logfile_maxbytes=0 \n\
-\n\
-[program:zip-downloads-api] \n\
-command=uvicorn zip_downloads:app --host 0.0.0.0 --port 8001 \n\
-directory=/app/backend \n\
-autostart=true \n\
-autorestart=true \n\
-stdout_logfile=/dev/stdout \n\
-stdout_logfile_maxbytes=0 \n\
-stderr_logfile=/dev/stderr \n\
-stderr_logfile_maxbytes=0 \n' > /etc/supervisor/conf.d/supervisord.conf
+# Copy supervisor configuration
+COPY .deployment/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # Expose port 8080 (Cloud Run requirement)
 EXPOSE 8080

@@ -122,15 +122,26 @@ echo "=========================================="
 echo "🧹 TEARDOWN PHASE: Post-deployment validation"
 echo "=========================================="
 
-# Test the service
-echo "🔍 Testing service health..."
-if curl -sf "${SERVICE_URL}" > /dev/null; then
-    echo "✅ Service is responding"
-else
-    echo "⚠️  WARNING: Service health check failed, but deployment completed"
-    echo "Please check the service logs with:"
-    echo "gcloud run services logs read ${SERVICE_NAME} --region=${REGION}"
-fi
+# Test the service (with retry for cold start)
+echo "🔍 Testing service health (waiting for cold start)..."
+MAX_RETRIES=6
+RETRY_DELAY=5
+
+for i in $(seq 1 $MAX_RETRIES); do
+    if curl -sf "${SERVICE_URL}" > /dev/null; then
+        echo "✅ Service is responding"
+        break
+    else
+        if [ $i -lt $MAX_RETRIES ]; then
+            echo "⏳ Attempt $i/$MAX_RETRIES failed, retrying in ${RETRY_DELAY}s..."
+            sleep $RETRY_DELAY
+        else
+            echo "⚠️  WARNING: Service health check failed after $MAX_RETRIES attempts"
+            echo "Please check the service logs with:"
+            echo "gcloud run services logs read ${SERVICE_NAME} --region=${REGION}"
+        fi
+    fi
+done
 
 echo ""
 echo "=========================================="
