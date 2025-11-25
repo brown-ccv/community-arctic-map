@@ -1,0 +1,56 @@
+# Docker build context ignores
+node_modules
+npm-debug.log
+frontend/node_modules
+frontend/dist
+frontend/.env
+frontend/.env.local
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+backend/venv
+backend/.env
+*.sqlite
+backend/cpad.sqlite
+backend/zipped_shapefiles/
+backend/bundled_zips/
+backend/metadata.html
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+*.md
+!.deployment/DEPLOYMENT.md
+
+# Development
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.pytest_cache
+.coverage
+htmlcov
+test_*
+*_test.py
+
+# CI/CD
+.github
+.gitlab-ci.yml
+
+# Misc
+*.log
+.env.example
+run.sh
+run_0.sh

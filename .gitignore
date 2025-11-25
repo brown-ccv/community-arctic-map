@@ -13,7 +13,20 @@ frontend/.env
 
 # Ignore node modules and build files
 frontend/node_modules/
+frontend/dist/
+dist/
 dist/.DS_Store
 
 # Ignore project-specific metadata information
 backend/metadata.html
+
+# Ignore Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Ignore deployment credentials
+.deployment/*.json
+.deployment/*-key.json
+~/.arctic-map-deploy.env
