@@ -323,8 +323,8 @@ gcloud run deploy ${SERVICE_NAME} \
     --region ${REGION} \
     --allow-unauthenticated \
     --port 8080 \
-    --memory 2Gi \
-    --cpu 2 \
+    --memory 1Gi \
+    --cpu 1 \
     --timeout 300 \
     --min-instances 0 \
     --max-instances 10 \
@@ -346,8 +346,8 @@ echo "📍 Service URL: ${SERVICE_URL}"
 - `--region`: GCP region for deployment
 - `--allow-unauthenticated`: Make service publicly accessible (use `--no-allow-unauthenticated` for private)
 - `--port 8080`: Container port (matches nginx configuration)
-- `--memory 2Gi`: RAM allocation (adjust based on data size)
-- `--cpu 2`: CPU allocation
+- `--memory 1Gi`: RAM allocation (start with 1GB, scale up based on data size if needed)
+- `--cpu 1`: CPU allocation (start with 1, scale up if needed)
 - `--timeout 300`: Request timeout (5 minutes, for large data operations)
 - `--min-instances 0`: Scale to zero when idle (saves costs)
 - `--max-instances 10`: Maximum concurrent instances

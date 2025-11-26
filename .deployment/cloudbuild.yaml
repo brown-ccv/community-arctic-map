@@ -47,8 +47,8 @@ steps:
       - '--region=us-central1'  # Modify region as needed
       - '--allow-unauthenticated'
       - '--port=8080'
-      - '--memory=2Gi'
-      - '--cpu=2'
+      - '--memory=1Gi'  # Start with 1GB, scale up if needed
+      - '--cpu=1'
       - '--timeout=300'
       - '--min-instances=0'
       - '--max-instances=10'
