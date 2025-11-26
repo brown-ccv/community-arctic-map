@@ -219,7 +219,55 @@ If command-line fails, create secrets via Cloud Console:
 
 ## Phase 2: 🚀 DEPLOY - Build and Deploy
 
-### Step 2.1: Build Docker Image
+### Step 2.1: Create Service Accounts
+
+Create dedicated service accounts for deploying and running the Cloud Run service:
+
+```bash
+# Set project ID
+export PROJECT_ID=artic-map-extragavanza
+
+# Create service account for deployment operations
+gcloud iam service-accounts create arctic-map-deploy-sa \
+    --display-name="Arctic Map Deploy Service Account" \
+    --description="Service account for deploying Arctic Map to Cloud Run" \
+    --project=${PROJECT_ID}
+
+# Create service account for runtime (what the Cloud Run service runs as)
+gcloud iam service-accounts create arctic-map-run-sa \
+    --display-name="Arctic Map Run Service Account" \
+    --description="Service account for Arctic Map Cloud Run runtime" \
+    --project=${PROJECT_ID}
+
+# Grant the deploy service account permission to act as the runtime service account
+gcloud iam service-accounts add-iam-policy-binding \
+    arctic-map-run-sa@${PROJECT_ID}.iam.gserviceaccount.com \
+    --member="serviceAccount:arctic-map-deploy-sa@${PROJECT_ID}.iam.gserviceaccount.com" \
+    --role="roles/iam.serviceAccountUser"
+
+# Grant the runtime service account permission to access secrets
+gcloud projects add-iam-policy-binding ${PROJECT_ID} \
+    --member="serviceAccount:arctic-map-run-sa@${PROJECT_ID}.iam.gserviceaccount.com" \
+    --role="roles/secretmanager.secretAccessor"
+
+# Grant yourself permission to act as the deploy service account
+gcloud iam service-accounts add-iam-policy-binding \
+    arctic-map-deploy-sa@${PROJECT_ID}.iam.gserviceaccount.com \
+    --member="user:$(gcloud config get-value account)" \
+    --role="roles/iam.serviceAccountUser"
+
+# Grant yourself Cloud Run Admin role (if not already granted)
+gcloud projects add-iam-policy-binding ${PROJECT_ID} \
+    --member="user:$(gcloud config get-value account)" \
+    --role="roles/run.admin"
+
+# Verify service accounts were created
+gcloud iam service-accounts list --project=${PROJECT_ID}
+```
+
+**Expected Output**: Should list both `arctic-map-deploy-sa` and `arctic-map-run-sa` service accounts
+
+### Step 2.2: Build Docker Image
 
 **🔍 PREPARE PHASE for Build:**
 ```bash
@@ -269,7 +317,7 @@ Successfully tagged gcr.io/YOUR_PROJECT_ID/arctic-map:latest
 - Permission denied → Check Docker daemon is running
 - Out of disk space → Free up space or use `docker system prune`
 
-### Step 2.2: Test Docker Image Locally (Optional but Recommended)
+### Step 2.3: Test Docker Image Locally (Optional but Recommended)
 
 ```bash
 # Run container locally with environment variables
@@ -300,7 +348,7 @@ docker stop arctic-map-test
 docker rm arctic-map-test
 ```
 
-### Step 2.3: Push Image to Google Container Registry
+### Step 2.4: Push Image to Google Container Registry
 
 ```bash
 # Push the image to GCR
@@ -317,7 +365,7 @@ gcloud container images list-tags gcr.io/${PROJECT_ID}/${IMAGE_NAME}
 
 **Expected Output**: Should show the `latest` tag with recent timestamp
 
-### Step 2.4: Deploy to Cloud Run
+### Step 2.5: Deploy to Cloud Run
 
 **🚀 DEPLOY PHASE for Cloud Run:**
 
@@ -340,6 +388,7 @@ gcloud run deploy ${SERVICE_NAME} \
     --timeout 300 \
     --min-instances 0 \
     --max-instances 10 \
+    --service-account="arctic-map-run-sa@${PROJECT_ID}.iam.gserviceaccount.com" \
     --set-secrets="VITE_MAPBOX_ACCESS_TOKEN=mapbox-access-token:latest,GOOGLE_SHEET_ID=google-sheet-id:latest,GOOGLE_SHEET_GID=google-sheet-gid:latest"
 
 # Capture the service URL
@@ -363,6 +412,7 @@ echo "📍 Service URL: ${SERVICE_URL}"
 - `--timeout 300`: Request timeout (5 minutes, for large data operations)
 - `--min-instances 0`: Scale to zero when idle (saves costs)
 - `--max-instances 10`: Maximum concurrent instances
+- `--service-account`: Service account the Cloud Run service runs as (needs secret access)
 - `--set-secrets`: Mount secrets from Secret Manager as environment variables
 
 **Expected Output**:
@@ -376,7 +426,7 @@ Service [arctic-map] revision [arctic-map-00001-xxx] has been deployed and is se
 Service URL: https://arctic-map-xxx-uc.a.run.app
 ```
 
-### Step 2.5: Verify Deployment
+### Step 2.6: Verify Deployment
 
 ```bash
 # Test the health endpoint
@@ -398,7 +448,7 @@ echo "🌐 Open in browser: ${SERVICE_URL}"
 gcloud run services logs read ${SERVICE_NAME} --region ${REGION} --limit 50
 ```
 
-### Step 2.6: Configure Custom Domain (Optional)
+### Step 2.7: Configure Custom Domain (Optional)
 
 **👋 HUMAN INTERVENTION REQUIRED:** If you want a custom domain:
 
