@@ -323,7 +323,7 @@ gcloud container images list-tags gcr.io/${PROJECT_ID}/${IMAGE_NAME}
 
 ```bash
 # Set deployment variables
-export PROJECT_ID=YOUR_PROJECT_ID          # 👋 HUMAN: Replace with your project ID
+export PROJECT_ID=artic-map-extragavanza
 export SERVICE_NAME=arctic-map
 export REGION=us-central1                  # 👋 HUMAN: Choose your preferred region
 export GCR_IMAGE=gcr.io/${PROJECT_ID}/arctic-map:latest
