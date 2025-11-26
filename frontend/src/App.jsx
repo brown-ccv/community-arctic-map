@@ -5,6 +5,7 @@ import Map from "./components/Map";
 import Sidebar from "./components/Sidebar";
 import ThematicMap from "./components/ThematicMap";
 import thematicMapConfigs from "./config/thematicMapConfigs";
+import { BACKEND_API_URL } from "./config/api";
 import "./styles/Sidebar.css";
 import "./styles/ThematicMap.css";
 
@@ -79,7 +80,7 @@ const App = () => {
 
       try {
         // Send spatial query request to backend API
-        const response = await fetch('http://localhost:8000/api/spatial-query', {
+        const response = await fetch(`${BACKEND_API_URL}/api/spatial-query`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

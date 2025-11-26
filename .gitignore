@@ -6,14 +6,33 @@ backend/bundled_zips/
 # Ignore virtual environments
 backend/venv/
 venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
 
 # Ignore environment variables
 backend/.env
 frontend/.env
+.env
+.env.local
 
 # Ignore node modules and build files
 frontend/node_modules/
-dist/.DS_Store
+node_modules/
+frontend/dist/
+dist/
+.DS_Store
 
 # Ignore project-specific metadata information
 backend/metadata.html
+
+# Ignore build and deployment artifacts
+*.log
+*.pid
+*.seed
+*.pid.lock
+.coverage
+.nyc_output
+*.tsbuildinfo
