@@ -20,6 +20,11 @@ RUN npm ci --production=false
 # Copy frontend source code
 COPY frontend/ ./
 
+# Set environment variables for production build
+# Use empty strings so the frontend uses relative URLs (proxied through nginx)
+ENV VITE_BACKEND_API_URL=""
+ENV VITE_DOWNLOAD_API_URL=""
+
 # Build frontend for production
 RUN npm run build
 
