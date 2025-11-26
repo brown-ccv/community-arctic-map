@@ -30,6 +30,9 @@ FROM python:3.12-slim
 
 # Install system dependencies for geospatial libraries and nginx
 RUN apt-get update && apt-get install -y \
+    build-essential \
+    g++ \
+    gcc \
     gdal-bin \
     libgdal-dev \
     libgeos-dev \
