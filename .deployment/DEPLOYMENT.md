@@ -287,27 +287,37 @@ done
 
 **🚀 DEPLOY PHASE for Build:**
 
-Build the Docker image and push to Google Container Registry:
+Build the Docker image for AMD64/Linux platform (required for Cloud Run):
 
 ```bash
 # Set variables
-export PROJECT_ID=artic-map-extragavanza        # 👋 HUMAN: Replace with your project ID
+export PROJECT_ID=artic-map-extragavanza
 export IMAGE_NAME=arctic-map
 export IMAGE_TAG=latest
 export GCR_IMAGE=gcr.io/${PROJECT_ID}/${IMAGE_NAME}:${IMAGE_TAG}
 
-# Build the Docker image
-echo "🐳 Building Docker image..."
-docker build -f .deployment/Dockerfile -t ${GCR_IMAGE} .
+# Build the Docker image for AMD64/Linux and push to GCR
+# Note: Cloud Run requires linux/amd64 platform
+echo "🐳 Building Docker image for AMD64/Linux..."
+docker buildx build --platform linux/amd64 \
+    -f .deployment/Dockerfile \
+    -t ${GCR_IMAGE} \
+    --push \
+    .
 
-# Verify build succeeded
-docker images | grep arctic-map && echo "✅ Image built successfully" || echo "❌ Image build failed"
+# Verify image was pushed
+gcloud container images list --repository=gcr.io/${PROJECT_ID} | grep arctic-map && \
+    echo "✅ Image built and pushed successfully" || echo "❌ Image build/push failed"
+```
+
+**Note**: If `docker buildx` is not available, set it up first:
+```bash
+docker buildx create --use
 ```
 
 **Expected Output**: 
 ```
-Successfully built [hash]
-Successfully tagged gcr.io/YOUR_PROJECT_ID/arctic-map:latest
+Successfully built image and pushed to gcr.io/artic-map-extragavanza/arctic-map:latest
 ```
 
 **HALT DIRECTIVE**: If build fails, check error messages and resolve before continuing.
@@ -316,16 +326,24 @@ Successfully tagged gcr.io/YOUR_PROJECT_ID/arctic-map:latest
 - Missing files → Verify all files in Step 1.2
 - Permission denied → Check Docker daemon is running
 - Out of disk space → Free up space or use `docker system prune`
+- `buildx` not available → Run `docker buildx create --use` to enable it
 
 ### Step 2.3: Test Docker Image Locally (Optional but Recommended)
 
+**Note**: Since the image was built for `linux/amd64`, you can still test it locally on Mac using Docker's emulation:
+
 ```bash
+# Set environment variables from .env
+export MAPBOX_TOKEN=$(grep VITE_MAPBOX_ACCESS_TOKEN .env | grep -v '^#' | cut -d '=' -f2)
+export SHEET_ID=$(grep GOOGLE_SHEET_ID .env | grep -v '^#' | cut -d '=' -f2)
+export SHEET_GID=$(grep GOOGLE_SHEET_GID .env | grep -v '^#' | cut -d '=' -f2)
+
 # Run container locally with environment variables
 docker run -d \
     -p 8080:8080 \
-    -e VITE_MAPBOX_ACCESS_TOKEN="$MAPBOX_TOKEN" \
-    -e GOOGLE_SHEET_ID="$SHEET_ID" \
-    -e GOOGLE_SHEET_GID="$SHEET_GID" \
+    -e VITE_MAPBOX_ACCESS_TOKEN="${MAPBOX_TOKEN}" \
+    -e GOOGLE_SHEET_ID="${SHEET_ID}" \
+    -e GOOGLE_SHEET_GID="${SHEET_GID}" \
     --name arctic-map-test \
     ${GCR_IMAGE}
 
@@ -348,24 +366,9 @@ docker stop arctic-map-test
 docker rm arctic-map-test
 ```
 
-### Step 2.4: Push Image to Google Container Registry
+### Step 2.4: Deploy to Cloud Run
 
-```bash
-# Push the image to GCR
-echo "📤 Pushing image to Google Container Registry..."
-docker push ${GCR_IMAGE}
-
-# Verify image was pushed
-gcloud container images list --repository=gcr.io/${PROJECT_ID} | grep arctic-map && \
-    echo "✅ Image pushed successfully" || echo "❌ Image push failed"
-
-# List image tags
-gcloud container images list-tags gcr.io/${PROJECT_ID}/${IMAGE_NAME}
-```
-
-**Expected Output**: Should show the `latest` tag with recent timestamp
-
-### Step 2.5: Deploy to Cloud Run
+**Note**: Step 2.4 (Push Image) is now combined with Step 2.2 (Build) using `docker buildx --push`.
 
 **🚀 DEPLOY PHASE for Cloud Run:**
 
@@ -373,8 +376,14 @@ gcloud container images list-tags gcr.io/${PROJECT_ID}/${IMAGE_NAME}
 # Set deployment variables
 export PROJECT_ID=artic-map-extragavanza
 export SERVICE_NAME=arctic-map
-export REGION=us-central1                  # 👋 HUMAN: Choose your preferred region
+export REGION=us-central1
 export GCR_IMAGE=gcr.io/${PROJECT_ID}/arctic-map:latest
+
+# Grant yourself permission to use the runtime service account (if not already done)
+gcloud iam service-accounts add-iam-policy-binding \
+    arctic-map-run-sa@${PROJECT_ID}.iam.gserviceaccount.com \
+    --member="user:$(gcloud config get-value account)" \
+    --role="roles/iam.serviceAccountUser"
 
 # Deploy to Cloud Run with secrets from Secret Manager
 gcloud run deploy ${SERVICE_NAME} \
@@ -426,7 +435,7 @@ Service [arctic-map] revision [arctic-map-00001-xxx] has been deployed and is se
 Service URL: https://arctic-map-xxx-uc.a.run.app
 ```
 
-### Step 2.6: Verify Deployment
+### Step 2.5: Verify Deployment
 
 ```bash
 # Test the health endpoint
@@ -448,7 +457,7 @@ echo "🌐 Open in browser: ${SERVICE_URL}"
 gcloud run services logs read ${SERVICE_NAME} --region ${REGION} --limit 50
 ```
 
-### Step 2.7: Configure Custom Domain (Optional)
+### Step 2.6: Configure Custom Domain (Optional)
 
 **👋 HUMAN INTERVENTION REQUIRED:** If you want a custom domain:
 
