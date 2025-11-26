@@ -165,9 +165,12 @@ grep -E "your_.*_here" .env && echo "❌ Placeholder values detected in .env" ||
 
 Store sensitive credentials in Google Cloud Secret Manager:
 
+**Note**: If your organization has location constraints, you must specify a region instead of using automatic replication. The commands below use `us-central1` to comply with common org policies. Adjust the region to match your Cloud Run deployment region.
+
 ```bash
-# Set your project ID
-export PROJECT_ID=YOUR_PROJECT_ID  # 👋 HUMAN: Replace with your project ID
+# Set your project ID and region
+export PROJECT_ID=artic-map-extragavanza
+export SECRET_REGION=us-central1  # 👋 HUMAN: Match your Cloud Run region
 
 # Create secrets from .env values
 # Extract values from .env and create secrets
@@ -176,25 +179,34 @@ export PROJECT_ID=YOUR_PROJECT_ID  # 👋 HUMAN: Replace with your project ID
 export MAPBOX_TOKEN=$(grep VITE_MAPBOX_ACCESS_TOKEN .env | cut -d '=' -f2)
 echo -n "$MAPBOX_TOKEN" | gcloud secrets create mapbox-access-token \
     --data-file=- \
-    --replication-policy="automatic"
+    --replication-policy="user-managed" \
+    --locations="$SECRET_REGION"
 
 # Google Sheet ID
 export SHEET_ID=$(grep GOOGLE_SHEET_ID .env | cut -d '=' -f2)
 echo -n "$SHEET_ID" | gcloud secrets create google-sheet-id \
     --data-file=- \
-    --replication-policy="automatic"
+    --replication-policy="user-managed" \
+    --locations="$SECRET_REGION"
 
 # Google Sheet GID
 export SHEET_GID=$(grep GOOGLE_SHEET_GID .env | cut -d '=' -f2)
 echo -n "$SHEET_GID" | gcloud secrets create google-sheet-gid \
     --data-file=- \
-    --replication-policy="automatic"
+    --replication-policy="user-managed" \
+    --locations="$SECRET_REGION"
 
 # Verify secrets were created
 gcloud secrets list
 ```
 
 **Expected Output**: Should list three secrets: `mapbox-access-token`, `google-sheet-id`, `google-sheet-gid`
+
+**Troubleshooting**: If you still encounter location constraint errors, check your organization's allowed regions:
+```bash
+gcloud resource-manager org-policies describe constraints/gcp.resourceLocations \
+    --project=$PROJECT_ID
+```
 
 **Alternative: Use Cloud Console**
 If command-line fails, create secrets via Cloud Console:
@@ -231,7 +243,7 @@ Build the Docker image and push to Google Container Registry:
 
 ```bash
 # Set variables
-export PROJECT_ID=YOUR_PROJECT_ID          # 👋 HUMAN: Replace with your project ID
+export PROJECT_ID=artic-map-extragavanza        # 👋 HUMAN: Replace with your project ID
 export IMAGE_NAME=arctic-map
 export IMAGE_TAG=latest
 export GCR_IMAGE=gcr.io/${PROJECT_ID}/${IMAGE_NAME}:${IMAGE_TAG}
