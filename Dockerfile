@@ -11,9 +11,10 @@ WORKDIR /app/frontend
 
 # Copy frontend package files
 COPY frontend/package*.json ./
+# COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* .npmrc* ./
 
 # Install dependencies
-RUN npm ci --only=production
+RUN npm ci
 
 # Copy frontend source code
 COPY frontend/ ./
@@ -38,6 +39,8 @@ FROM python:3.12-slim
 # Install system dependencies for geospatial libraries and Google Cloud SDK
 RUN apt-get update && apt-get install -y \
     libgdal-dev \
+    gdal-bin \
+    g++ \
     libgeos-dev \
     libproj-dev \
     curl \
