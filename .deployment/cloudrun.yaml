@@ -1,0 +1,96 @@
+# ==============================================================================
+# Google Cloud Run Service Configuration for Community Arctic Map
+# ==============================================================================
+# This file defines the Cloud Run service configuration
+# It can be used with `gcloud run services replace` for declarative deployments
+# ==============================================================================
+
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: community-arctic-map
+  labels:
+    cloud.googleapis.com/location: us-east1
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/ingress-status: all
+spec:
+  template:
+    metadata:
+      annotations:
+        # Auto-scaling configuration
+        autoscaling.knative.dev/minScale: '0'    # Scale to zero when idle
+        autoscaling.knative.dev/maxScale: '10'   # Maximum instances
+        
+        # Resource allocation
+        run.googleapis.com/cpu-throttling: 'true'
+        run.googleapis.com/startup-cpu-boost: 'true'
+        
+        # Execution environment
+        run.googleapis.com/execution-environment: gen2
+    spec:
+      # Container configuration
+      containerConcurrency: 80  # Max concurrent requests per instance
+      timeoutSeconds: 300       # Request timeout (5 minutes)
+      serviceAccountName: community-arctic-map-sa@PROJECT_ID.iam.gserviceaccount.com
+      
+      containers:
+      - name: community-arctic-map
+        image: us-east1-docker.pkg.dev/PROJECT_ID/community-arctic-map/community-arctic-map:latest
+        
+        ports:
+        - name: http1
+          containerPort: 8080
+        
+        # Resource limits
+        resources:
+          limits:
+            cpu: '2000m'      # 2 vCPU
+            memory: '2Gi'     # 2 GB RAM
+        
+        # Environment variables (non-sensitive)
+        env:
+        - name: PORT
+          value: '8080'
+        - name: BACKEND_API_URL
+          value: 'http://localhost:8000'
+        - name: DOWNLOAD_API_URL
+          value: 'http://localhost:8001'
+        
+        # Secrets from Secret Manager (example - uncomment and configure as needed)
+        # - name: GOOGLE_SHEET_ID
+        #   valueFrom:
+        #     secretKeyRef:
+        #       name: google-sheet-id
+        #       key: latest
+        # - name: GOOGLE_SHEET_GID
+        #   valueFrom:
+        #     secretKeyRef:
+        #       name: google-sheet-gid
+        #       key: latest
+        # - name: VITE_MAPBOX_ACCESS_TOKEN
+        #   valueFrom:
+        #     secretKeyRef:
+        #       name: mapbox-access-token
+        #       key: latest
+        
+        # Volume mounts for large data files
+        # Note: Cloud Run has limited volume support. For large files like cpad.sqlite,
+        # consider using Cloud Storage FUSE or fetching from GCS on startup
+        # volumeMounts:
+        # - name: data
+        #   mountPath: /app/data
+        #   readOnly: true
+      
+      # Volumes (if using)
+      # volumes:
+      # - name: data
+      #   csi:
+      #     driver: gcsfuse.run.googleapis.com
+      #     volumeAttributes:
+      #       bucketName: BUCKET_NAME
+      #       mountOptions: implicit-dirs
+
+  traffic:
+  - percent: 100
+    latestRevision: true

@@ -1,5 +1,7 @@
 from fastapi import FastAPI, HTTPException, Response, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 import geopandas as gpd
 import pandas as pd
 import fiona
@@ -33,7 +35,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Configuration paths
 DB_PATH = os.getenv("CPAD_SQLITE_PATH", "cpad.sqlite")
+FRONTEND_DIST = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "dist")
 
 def get_available_layers():
     try:
@@ -394,3 +398,89 @@ def spatial_query(request_data: SpatialQueryRequest):
 
     # Return a single FeatureCollection containing all found features
     return SpatialQueryResponse(type="FeatureCollection", features=all_found_features)
+
+
+# ==============================================================================
+# Download API Endpoints (from zip_downloads.py)
+# ==============================================================================
+
+import zipfile
+import uuid
+from starlette.background import BackgroundTask
+
+# Directories for shapefile downloads
+ZIP_DIR = os.getenv("ZIPPED_SHAPEFILES_PATH", "zipped_shapefiles")
+BUNDLE_DIR = "bundled_zips"
+os.makedirs(BUNDLE_DIR, exist_ok=True)
+
+@app.get("/api/shapefiles/batch")
+def download_selected_layers(layers: str = Query(..., description="Comma-separated list of layer names")):
+    """Download multiple layers as a bundled zip file"""
+    layer_list = [layer.strip() for layer in layers.split(",") if layer.strip()]
+    if not layer_list:
+        raise HTTPException(status_code=400, detail="No layers specified.")
+
+    bundle_id = str(uuid.uuid4())
+    bundle_path = os.path.join(BUNDLE_DIR, f"{bundle_id}.zip")
+
+    found_any = False
+    with zipfile.ZipFile(bundle_path, "w") as bundle_zip:
+        for layer in layer_list:
+            zip_filename = f"{layer}.zip"
+            zip_path = os.path.join(ZIP_DIR, zip_filename)
+            if not os.path.exists(zip_path):
+                print(f"[WARN] Missing file: {zip_path}")
+                continue
+            bundle_zip.write(zip_path, arcname=zip_filename)
+            found_any = True
+
+    if not found_any:
+        raise HTTPException(status_code=404, detail="None of the requested shapefiles were found.")
+
+    return FileResponse(
+        path=bundle_path,
+        filename="selected_layers.zip",
+        media_type="application/zip",
+        background=BackgroundTask(lambda: os.remove(bundle_path))
+    )
+
+@app.get("/api/shapefiles/{filename}")
+def download_shapefile(filename: str):
+    """Download a single shapefile"""
+    if not filename.endswith(".zip"):
+        filename += ".zip"
+    file_path = os.path.join(ZIP_DIR, filename)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Shapefile not found")
+    return FileResponse(file_path, media_type="application/zip", filename=filename)
+
+
+# ==============================================================================
+# Health Check and Frontend Serving
+# ==============================================================================
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for Cloud Run"""
+    return {"status": "healthy", "service": "community-arctic-map"}
+
+
+# Serve frontend static files (if they exist)
+if os.path.exists(FRONTEND_DIST):
+    app.mount("/assets", StaticFiles(directory=os.path.join(FRONTEND_DIST, "assets")), name="assets")
+    
+    @app.get("/{full_path:path}")
+    async def serve_frontend(full_path: str):
+        """Serve the React frontend for all non-API routes"""
+        # Don't serve frontend for API routes
+        if full_path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="API endpoint not found")
+        
+        # Serve index.html for all other routes (React Router will handle routing)
+        index_path = os.path.join(FRONTEND_DIST, "index.html")
+        if os.path.exists(index_path):
+            return FileResponse(index_path)
+        raise HTTPException(status_code=404, detail="Frontend not found")
+else:
+    print(f"[WARN] Frontend dist directory not found at {FRONTEND_DIST}")
+    print("[WARN] Running in API-only mode")
