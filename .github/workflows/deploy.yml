@@ -21,7 +21,7 @@ on:
 
 # Environment variables used across all jobs
 env:
-  GCP_REGION: us-east1
+  GCP_REGION: us-east1-docker.pkg.dev
   GCP_PROJECT_ID: salap-ayca-artic-map
   ARTIFACT_REGISTRY_REPO: arctic-map-repo
   SERVICE_NAME: community-arctic-map
