@@ -124,7 +124,7 @@ set_secret_from_file "GCP_SERVICE_ACCOUNT_KEY" "Service account key JSON file" "
 echo -e "${GREEN}--- Application Secrets (Runtime) ---${NC}"
 set_secret "GOOGLE_SHEET_ID" "Google Sheet ID for layer theme organization" "true" "" ""
 set_secret "GOOGLE_SHEET_GID" "Google Sheet GID (tab identifier)" "true" "^[0-9]{1,20}$" "GID must be 1-20 numeric digits"
-set_secret "VITE_MAPBOX_ACCESS_TOKEN" "Mapbox access token for frontend" "true" "^pk\.[a-zA-Z0-9_-]{50,}$" "Mapbox public token must start with 'pk.' followed by at least 50 alphanumeric characters"
+set_secret "VITE_MAPBOX_ACCESS_TOKEN" "Mapbox access token for frontend" "true" "^pk\.[a-zA-Z0-9._-]{50,}$" "Mapbox public token must start with 'pk.' followed by at least 50 characters"
 
 # Optional secrets
 echo -e "${GREEN}--- Optional Secrets ---${NC}"

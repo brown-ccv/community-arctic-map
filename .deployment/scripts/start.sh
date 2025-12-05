@@ -13,7 +13,7 @@ echo "=============================================="
 
 # Download database if needed
 echo "[INFO] Checking for database file..."
-if [ -x /app/scripts/download-database.sh ]; then
+if [ -f /app/scripts/download-database.sh ] && [ -x /app/scripts/download-database.sh ]; then
     if /app/scripts/download-database.sh; then
         echo "[INFO] Database ready"
     else
@@ -22,6 +22,9 @@ if [ -x /app/scripts/download-database.sh ]; then
         # Continue anyway - let the application handle the missing database
         # The application will fail on first request if database is truly required
     fi
+elif [ -f /app/scripts/download-database.sh ]; then
+    echo "[WARNING] Database download script exists but is not executable"
+    echo "[WARNING] Application may not function correctly without the database"
 else
     echo "[WARNING] Database download script not found"
     echo "[WARNING] Application may not function correctly without the database"

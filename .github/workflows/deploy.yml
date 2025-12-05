@@ -86,7 +86,8 @@ jobs:
           # Use dummy values for build-time validation
           # Note: This is a test build to validate the code compiles
           # The actual deployment will use the real Mapbox token from GitHub Secrets
-          export VITE_MAPBOX_ACCESS_TOKEN=pk.test_dummy_token_for_validation_only
+          # Using a properly formatted token to match validation: pk. + 50+ chars
+          export VITE_MAPBOX_ACCESS_TOKEN=pk.eyJ1IjoidGVzdCIsImEiOiJ0ZXN0X3Rva2VuX2Zvcl92YWxpZGF0aW9uX29ubHlfMTIzNDU2Nzg5MCJ9
           export VITE_API_BASE_URL=/api
           export VITE_DOWNLOAD_API_URL=/api/download
           npm run build | tee build.log
