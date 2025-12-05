@@ -60,8 +60,17 @@ async def proxy_api(path: str, request: Request):
         )
         
         # Return the response
+        content_type = response.headers.get('content-type', '')
+        if content_type.startswith('application/json'):
+            try:
+                content = response.json()
+            except Exception:
+                content = response.text
+        else:
+            content = response.text
+        
         return JSONResponse(
-            content=response.json() if response.headers.get('content-type', '').startswith('application/json') else response.text,
+            content=content,
             status_code=response.status_code,
             headers=dict(response.headers)
         )

@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Response, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from starlette.background import BackgroundTask
 import geopandas as gpd
 import pandas as pd
 import fiona
@@ -9,6 +10,8 @@ from bs4 import BeautifulSoup
 import re
 from geopy.geocoders import Nominatim 
 from geopy.exc import GeocoderTimedOut, GeocoderServiceError
+import zipfile
+import uuid
 # import sqlite3
 from dotenv import load_dotenv
 import os
@@ -404,10 +407,6 @@ def spatial_query(request_data: SpatialQueryRequest):
 # Download API Endpoints (from zip_downloads.py)
 # ==============================================================================
 
-import zipfile
-import uuid
-from starlette.background import BackgroundTask
-
 # Directories for shapefile downloads
 ZIP_DIR = os.getenv("ZIPPED_SHAPEFILES_PATH", "zipped_shapefiles")
 BUNDLE_DIR = "bundled_zips"
@@ -472,8 +471,8 @@ if os.path.exists(FRONTEND_DIST):
     @app.get("/{full_path:path}")
     async def serve_frontend(full_path: str):
         """Serve the React frontend for all non-API routes"""
-        # Don't serve frontend for API routes
-        if full_path.startswith("api/"):
+        # Don't serve frontend for API routes (with or without leading slash)
+        if full_path.startswith("api/") or full_path.startswith("/api/"):
             raise HTTPException(status_code=404, detail="API endpoint not found")
         
         # Serve index.html for all other routes (React Router will handle routing)
