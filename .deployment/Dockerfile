@@ -34,11 +34,16 @@ RUN npm run build
 # =============================================================================
 FROM python:3.12-slim
 
-# Install system dependencies for geospatial libraries
+# Install system dependencies for geospatial libraries and Google Cloud SDK
 RUN apt-get update && apt-get install -y \
     libgdal-dev \
     libgeos-dev \
     libproj-dev \
+    curl \
+    gnupg \
+    && echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list \
+    && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key --keyring /usr/share/keyrings/cloud.google.gpg add - \
+    && apt-get update && apt-get install -y google-cloud-cli \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -53,23 +58,33 @@ COPY backend/ ./backend/
 # Copy built frontend from builder stage
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
+# Copy database download script
+COPY .deployment/scripts/download-database.sh /app/scripts/download-database.sh
+RUN chmod +x /app/scripts/download-database.sh
+
 # Create directory for the SQLite database file
-# This will be mounted as a volume in production
-RUN mkdir -p /app/backend/data
+# This will be populated by the download script at startup
+RUN mkdir -p /app/backend
 
 # Install additional dependencies for serving static files
 RUN pip install --no-cache-dir aiofiles
 
-# Create a startup script that runs both FastAPI services
+# Create a startup script that downloads database and runs both FastAPI services
 RUN echo '#!/bin/bash\n\
 set -e\n\
 \n\
+# Download database if needed\n\
+echo "[INFO] Checking for database file..."\n\
+/app/scripts/download-database.sh || echo "[WARNING] Database download failed or skipped"\n\
+\n\
 # Start zip_downloads service on port 8001 in background\n\
 cd /app/backend\n\
+echo "[INFO] Starting zip_downloads service on port 8001"\n\
 uvicorn zip_downloads:app --host 0.0.0.0 --port 8001 &\n\
 \n\
 # Start main service with production config on PORT (provided by Cloud Run) or default 8080\n\
 PORT=${PORT:-8080}\n\
+echo "[INFO] Starting main service on port $PORT"\n\
 uvicorn production:app --host 0.0.0.0 --port $PORT\n\
 ' > /app/start.sh && chmod +x /app/start.sh
 

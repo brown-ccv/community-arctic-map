@@ -21,20 +21,18 @@ if IS_PRODUCTION:
     # Mount static files (assets like JS, CSS, images)
     main_app.mount("/assets", StaticFiles(directory=os.path.join(FRONTEND_DIST, "assets")), name="assets")
     
-    # Serve index.html for all non-API routes (SPA routing)
-    @main_app.get("/{full_path:path}")
+    # Serve index.html for root path and SPA routes (but not /api routes)
+    # Note: FastAPI routes are matched first, so /api/* will be handled by existing routes
+    # This catch-all only handles paths that don't match any existing route
+    @main_app.get("/{full_path:path}", include_in_schema=False)
     async def serve_spa(full_path: str):
-        # If the path starts with /api, let FastAPI handle it
-        if full_path.startswith("api/"):
-            # FastAPI will handle this with existing routes
-            return
-        
-        # Check if it's a static file request
+        # Check if it's a static file request (not in assets, like favicon.ico)
         file_path = os.path.join(FRONTEND_DIST, full_path)
         if os.path.isfile(file_path):
             return FileResponse(file_path)
         
-        # Otherwise serve index.html (for client-side routing)
+        # For all other paths (including root "/"), serve index.html
+        # FastAPI will match /api/* routes before this catch-all
         return FileResponse(os.path.join(FRONTEND_DIST, "index.html"))
 
 else:

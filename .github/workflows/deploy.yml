@@ -184,7 +184,7 @@ jobs:
             --timeout=300 \
             --max-instances=10 \
             --min-instances=0 \
-            --set-env-vars="PORT=8080,GOOGLE_SHEET_ID=${{ secrets.GOOGLE_SHEET_ID }},GOOGLE_SHEET_GID=${{ secrets.GOOGLE_SHEET_GID }}" \
+            --set-env-vars="PORT=8080,GOOGLE_SHEET_ID=${{ secrets.GOOGLE_SHEET_ID }},GOOGLE_SHEET_GID=${{ secrets.GOOGLE_SHEET_GID }},GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}" \
             --no-cpu-throttling \
             --quiet 2>&1 | tee deploy.log
           
