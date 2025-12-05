@@ -1,0 +1,71 @@
+# Cloud Run service configuration
+# This file defines the Cloud Run service deployment configuration
+
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: community-arctic-map
+  labels:
+    cloud.googleapis.com/location: us-east1
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/ingress-status: all
+spec:
+  template:
+    metadata:
+      annotations:
+        # Allocate more resources for handling geospatial operations
+        run.googleapis.com/cpu-throttling: 'false'
+        run.googleapis.com/startup-cpu-boost: 'true'
+    spec:
+      # Service account with necessary permissions
+      serviceAccountName: community-arctic-map-sa@PROJECT_ID.iam.gserviceaccount.com
+      
+      # Container specification
+      containers:
+        - name: community-arctic-map
+          image: us-east1-docker.pkg.dev/PROJECT_ID/arctic-map-repo/community-arctic-map:latest
+          
+          # Resource allocation
+          resources:
+            limits:
+              cpu: '2'
+              memory: 4Gi
+          
+          # Environment variables (non-sensitive)
+          env:
+            - name: PORT
+              value: '8080'
+          
+          # Startup probe for health checking
+          startupProbe:
+            httpGet:
+              path: /api/layer_hierarchy
+              port: 8080
+            initialDelaySeconds: 10
+            timeoutSeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          
+          # Volume mounts for the SQLite database
+          volumeMounts:
+            - name: database
+              mountPath: /app/backend
+              subPath: cpad.sqlite
+      
+      # Volumes - this will need to be configured with actual Cloud Storage bucket
+      volumes:
+        - name: database
+          emptyDir: {}
+      
+      # Auto-scaling configuration
+      scaling:
+        minInstances: 0  # Scale to zero when not in use
+        maxInstances: 10
+      
+      # Timeout for requests
+      timeoutSeconds: 300
+  
+  traffic:
+    - percent: 100
+      latestRevision: true
