@@ -151,12 +151,12 @@ jobs:
       - name: Configure Docker Auth
         shell: bash
         run: |
-          gcloud auth configure-docker ${{ env.gcp_registry_url }}
+          gcloud auth configure-docker ${{ env.GCP_REGION }}
 
       - uses: docker/build-push-action@v6
         with:
           push: true
-          tags: ${{ env.gcp_registry_url }}/${{ env.gcp_project_id }}/${{ env.gcp_container_registry }}/${{ env.image }}:latest
+          tags: ${{ env.GCP_REGION }}/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:latest
 
       # - name: 🔐 Configure Docker for Artifact Registry
       #   run: |
@@ -184,25 +184,25 @@ jobs:
       #     echo "✅ Docker images pushed successfully"
         timeout-minutes: 10
 
-      - name: 🚀 Deploy to Cloud Run
-        run: |
-          gcloud run deploy ${{ env.SERVICE_NAME }} \
-            --image=${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:${{ needs.prepare.outputs.image_tag }} \
-            --region=${{ env.GCP_REGION }} \
-            --platform=managed \
-            --allow-unauthenticated \
-            --service-account=${{ env.SERVICE_NAME }}-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com \
-            --memory=4Gi \
-            --cpu=2 \
-            --timeout=300 \
-            --max-instances=10 \
-            --min-instances=0 \
-            --set-env-vars="PORT=8080,GOOGLE_SHEET_ID=${{ secrets.GOOGLE_SHEET_ID }},GOOGLE_SHEET_GID=${{ secrets.GOOGLE_SHEET_GID }},GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}" \
-            --no-cpu-throttling \
-            --quiet 2>&1 | tee deploy.log
+      # - name: 🚀 Deploy to Cloud Run
+      #   run: |
+      #     gcloud run deploy ${{ env.SERVICE_NAME }} \
+      #       --image=${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:${{ needs.prepare.outputs.image_tag }} \
+      #       --region=${{ env.GCP_REGION }} \
+      #       --platform=managed \
+      #       --allow-unauthenticated \
+      #       --service-account=${{ env.SERVICE_NAME }}-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com \
+      #       --memory=4Gi \
+      #       --cpu=2 \
+      #       --timeout=300 \
+      #       --max-instances=10 \
+      #       --min-instances=0 \
+      #       --set-env-vars="PORT=8080,GOOGLE_SHEET_ID=${{ secrets.GOOGLE_SHEET_ID }},GOOGLE_SHEET_GID=${{ secrets.GOOGLE_SHEET_GID }},GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}" \
+      #       --no-cpu-throttling \
+      #       --quiet 2>&1 | tee deploy.log
           
-          echo "✅ Cloud Run deployment completed"
-        timeout-minutes: 10
+      #     echo "✅ Cloud Run deployment completed"
+      #   timeout-minutes: 10
 
       - name: 🔍 Get service URL
         id: get-url
