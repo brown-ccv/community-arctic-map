@@ -22,7 +22,7 @@ on:
 # Environment variables used across all jobs
 env:
   GCP_REGION: us-east1-docker.pkg.dev
-  GCP_PROJECT_ID: salap-ayca-artic-map
+  # gcp_project_id: salap-ayca-artic-map
   ARTIFACT_REGISTRY_REPO: arctic-map-repo
   SERVICE_NAME: community-arctic-map
   gcp_project_id: salap-ayca-artic-map
@@ -102,7 +102,7 @@ jobs:
       - name: 📊 Setup deployment metadata
         id: setup
         run: |
-          echo "project_id=${{ secrets.GCP_PROJECT_ID }}" >> $GITHUB_OUTPUT
+          echo "project_id=${{ secrets.gcp_project_id }}" >> $GITHUB_OUTPUT
           echo "image_tag=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
           echo "✅ Prepare phase completed successfully"
 
@@ -110,8 +110,8 @@ jobs:
         run: |
           echo "Checking required secrets..."
           
-          if [ -z "${{ secrets.GCP_PROJECT_ID }}" ]; then
-            echo "❌ GCP_PROJECT_ID secret is missing"
+          if [ -z "${{ secrets.gcp_project_id }}" ]; then
+            echo "❌ gcp_project_id secret is missing"
             exit 1
           fi
           
@@ -152,7 +152,7 @@ jobs:
       - name: 🔧 Setup Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
         with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          project_id: ${{ secrets.gcp_project_id }}
 
       - uses: docker/login-action@v3
         with:
@@ -180,8 +180,8 @@ jobs:
       #   run: |
       #     docker build \
       #       -f .deployment/Dockerfile \
-      #       -t ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:${{ needs.prepare.outputs.image_tag }} \
-      #       -t ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:latest \
+      #       -t ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.gcp_project_id }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:${{ needs.prepare.outputs.image_tag }} \
+      #       -t ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.gcp_project_id }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:latest \
       #       --build-arg VITE_MAPBOX_ACCESS_TOKEN=${{ secrets.VITE_MAPBOX_ACCESS_TOKEN }} \
       #       --build-arg VITE_API_BASE_URL=/api \
       #       --build-arg VITE_DOWNLOAD_API_URL=/api/download \
@@ -192,25 +192,25 @@ jobs:
 
       # - name: 📤 Push Docker image to Artifact Registry
       #   run: |
-      #     docker push ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:${{ needs.prepare.outputs.image_tag }}
-      #     docker push ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:latest
+      #     docker push ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.gcp_project_id }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:${{ needs.prepare.outputs.image_tag }}
+      #     docker push ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.gcp_project_id }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:latest
       #     echo "✅ Docker images pushed successfully"
         timeout-minutes: 10
 
       # - name: 🚀 Deploy to Cloud Run
       #   run: |
       #     gcloud run deploy ${{ env.SERVICE_NAME }} \
-      #       --image=${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:${{ needs.prepare.outputs.image_tag }} \
+      #       --image=${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.gcp_project_id }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:${{ needs.prepare.outputs.image_tag }} \
       #       --region=${{ env.GCP_REGION }} \
       #       --platform=managed \
       #       --allow-unauthenticated \
-      #       --service-account=${{ env.SERVICE_NAME }}-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com \
+      #       --service-account=${{ env.SERVICE_NAME }}-sa@${{ secrets.gcp_project_id }}.iam.gserviceaccount.com \
       #       --memory=4Gi \
       #       --cpu=2 \
       #       --timeout=300 \
       #       --max-instances=10 \
       #       --min-instances=0 \
-      #       --set-env-vars="PORT=8080,GOOGLE_SHEET_ID=${{ secrets.GOOGLE_SHEET_ID }},GOOGLE_SHEET_GID=${{ secrets.GOOGLE_SHEET_GID }},GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}" \
+      #       --set-env-vars="PORT=8080,GOOGLE_SHEET_ID=${{ secrets.GOOGLE_SHEET_ID }},GOOGLE_SHEET_GID=${{ secrets.GOOGLE_SHEET_GID }},gcp_project_id=${{ secrets.gcp_project_id }}" \
       #       --no-cpu-throttling \
       #       --quiet 2>&1 | tee deploy.log
           
@@ -289,7 +289,7 @@ jobs:
         if: needs.deploy.result == 'failure'
         uses: google-github-actions/setup-gcloud@v2
         with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          project_id: ${{ secrets.gcp_project_id }}
 
       - name: 🔄 Rollback on failure (optional)
         if: needs.deploy.result == 'failure'
