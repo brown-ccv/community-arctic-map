@@ -5,6 +5,14 @@
 set -e
 
 DATABASE_PATH="/app/backend/cpad.sqlite"
+
+# Validate required environment variables
+if [ -z "$GCP_PROJECT_ID" ]; then
+    echo "[ERROR] GCP_PROJECT_ID environment variable is not set"
+    echo "[ERROR] Cannot determine Cloud Storage bucket name"
+    exit 1
+fi
+
 BUCKET_NAME="${GCS_BUCKET_NAME:-${GCP_PROJECT_ID}-community-arctic-map-data}"
 OBJECT_PATH="cpad.sqlite"
 

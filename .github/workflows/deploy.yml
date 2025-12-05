@@ -84,7 +84,9 @@ jobs:
         run: |
           cd frontend
           # Use dummy values for build-time validation
-          export VITE_MAPBOX_ACCESS_TOKEN=pk.test
+          # Note: This is a test build to validate the code compiles
+          # The actual deployment will use the real Mapbox token from GitHub Secrets
+          export VITE_MAPBOX_ACCESS_TOKEN=pk.test_dummy_token_for_validation_only
           export VITE_API_BASE_URL=/api
           export VITE_DOWNLOAD_API_URL=/api/download
           npm run build | tee build.log

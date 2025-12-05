@@ -45,6 +45,8 @@ set_secret() {
     local secret_name=$1
     local secret_description=$2
     local is_required=$3
+    local validation_pattern=$4
+    local validation_message=$5
     
     echo -e "${YELLOW}🔑 Setting secret: $secret_name${NC}"
     echo "   Description: $secret_description"
@@ -68,6 +70,13 @@ set_secret() {
             echo ""
             return
         fi
+    fi
+    
+    # Validate format if pattern provided
+    if [ -n "$validation_pattern" ] && ! [[ "$secret_value" =~ $validation_pattern ]]; then
+        echo -e "${RED}❌ Error: Invalid format${NC}"
+        echo "   $validation_message"
+        exit 1
     fi
     
     # Set the secret using gh CLI
@@ -108,18 +117,18 @@ echo ""
 
 # Required secrets
 echo -e "${GREEN}--- Required Secrets (CI/CD) ---${NC}"
-set_secret "GCP_PROJECT_ID" "Your Google Cloud Project ID" "true"
+set_secret "GCP_PROJECT_ID" "Your Google Cloud Project ID" "true" "" ""
 set_secret_from_file "GCP_SERVICE_ACCOUNT_KEY" "Service account key JSON file" "./community-arctic-map-sa-key.json"
 
 # Application secrets (runtime)
 echo -e "${GREEN}--- Application Secrets (Runtime) ---${NC}"
-set_secret "GOOGLE_SHEET_ID" "Google Sheet ID for layer theme organization" "true"
-set_secret "GOOGLE_SHEET_GID" "Google Sheet GID (tab identifier)" "true"
-set_secret "VITE_MAPBOX_ACCESS_TOKEN" "Mapbox access token for frontend" "true"
+set_secret "GOOGLE_SHEET_ID" "Google Sheet ID for layer theme organization" "true" "" ""
+set_secret "GOOGLE_SHEET_GID" "Google Sheet GID (tab identifier)" "true" "^[0-9]+$" "GID must be a numeric value"
+set_secret "VITE_MAPBOX_ACCESS_TOKEN" "Mapbox access token for frontend" "true" "^pk\." "Mapbox public tokens must start with 'pk.'"
 
 # Optional secrets
 echo -e "${GREEN}--- Optional Secrets ---${NC}"
-set_secret "SLACK_WEBHOOK_URL" "Slack webhook for deployment notifications" "false"
+set_secret "SLACK_WEBHOOK_URL" "Slack webhook for deployment notifications" "false" "" ""
 
 # Summary
 echo -e "${GREEN}==================================================================${NC}"
