@@ -58,9 +58,10 @@ COPY backend/ ./backend/
 # Copy built frontend from builder stage
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
-# Copy database download script
+# Copy database download script and startup script
 COPY .deployment/scripts/download-database.sh /app/scripts/download-database.sh
-RUN chmod +x /app/scripts/download-database.sh
+COPY .deployment/scripts/start.sh /app/start.sh
+RUN chmod +x /app/scripts/download-database.sh /app/start.sh
 
 # Create directory for the SQLite database file
 # This will be populated by the download script at startup
@@ -68,25 +69,6 @@ RUN mkdir -p /app/backend
 
 # Install additional dependencies for serving static files
 RUN pip install --no-cache-dir aiofiles
-
-# Create a startup script that downloads database and runs both FastAPI services
-RUN echo '#!/bin/bash\n\
-set -e\n\
-\n\
-# Download database if needed\n\
-echo "[INFO] Checking for database file..."\n\
-/app/scripts/download-database.sh || echo "[WARNING] Database download failed or skipped"\n\
-\n\
-# Start zip_downloads service on port 8001 in background\n\
-cd /app/backend\n\
-echo "[INFO] Starting zip_downloads service on port 8001"\n\
-uvicorn zip_downloads:app --host 0.0.0.0 --port 8001 &\n\
-\n\
-# Start main service with production config on PORT (provided by Cloud Run) or default 8080\n\
-PORT=${PORT:-8080}\n\
-echo "[INFO] Starting main service on port $PORT"\n\
-uvicorn production:app --host 0.0.0.0 --port $PORT\n\
-' > /app/start.sh && chmod +x /app/start.sh
 
 # Expose port (Cloud Run will set the PORT environment variable)
 EXPOSE 8080

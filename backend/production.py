@@ -26,8 +26,16 @@ if IS_PRODUCTION:
     # This catch-all only handles paths that don't match any existing route
     @main_app.get("/{full_path:path}", include_in_schema=False)
     async def serve_spa(full_path: str):
+        # Security: Prevent path traversal attacks
+        # Normalize the path and ensure it stays within FRONTEND_DIST
+        file_path = os.path.normpath(os.path.join(FRONTEND_DIST, full_path))
+        
+        # Verify the resolved path is still within the frontend directory
+        if not file_path.startswith(os.path.abspath(FRONTEND_DIST)):
+            # Path traversal attempt detected, serve index.html instead
+            return FileResponse(os.path.join(FRONTEND_DIST, "index.html"))
+        
         # Check if it's a static file request (not in assets, like favicon.ico)
-        file_path = os.path.join(FRONTEND_DIST, full_path)
         if os.path.isfile(file_path):
             return FileResponse(file_path)
         
