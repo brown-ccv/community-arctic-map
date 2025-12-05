@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { getApiUrl } from '../config/api';
 
 export default function SearchBar({ map }) {
   const [query, setQuery] = useState("");
@@ -7,7 +8,7 @@ export default function SearchBar({ map }) {
     if (!query) return;
 
     try {
-      const res = await fetch(`http://localhost:8000/api/geocode?query=${encodeURIComponent(query)}`);
+      const res = await fetch(getApiUrl(`/api/geocode?query=${encodeURIComponent(query)}`));
       
       // First, check if the response was successful (HTTP status code 200-299)
       if (!res.ok) {

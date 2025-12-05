@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import "../styles/Sidebar.css";
 import AttributeTable from "./AttributeTable";
+import { getApiUrl } from '../config/api';
 
 const Popup = ({ title, onClose, children }) => (
   <div className="attribute-popup" role="dialog" aria-modal="true">
@@ -25,7 +26,7 @@ const Sidebar = ({ onLayerToggle, isThematicMode, onThematicModeToggle, isSideba
   const [showAboutPopup, setShowAboutPopup] = useState(false);
 
   useEffect(() => {
-    fetch("http://localhost:8000/api/layer_hierarchy")
+    fetch(getApiUrl("/api/layer_hierarchy"))
       .then((res) => res.json())
       .then((data) => {
         const themeGroups = [];
@@ -92,7 +93,7 @@ const Sidebar = ({ onLayerToggle, isThematicMode, onThematicModeToggle, isSideba
 
   const handleViewAttributes = (layer) => {
     setLoadingAttributes(true);
-    fetch(`http://localhost:8000/api/geojson/${layer}`)
+    fetch(getApiUrl(`/api/geojson/${layer}`))
       .then((res) => res.json())
       .then((geojson) => {
 
@@ -119,7 +120,7 @@ const Sidebar = ({ onLayerToggle, isThematicMode, onThematicModeToggle, isSideba
 
   const handleDownloadShp = (layer) => {
     const link = document.createElement("a");
-    link.href = `http://localhost:8001/api/shapefiles/${layer}.zip`;
+    link.href = getApiUrl(`/api/shapefiles/${layer}.zip`, 'download');
     link.download = `${layer}.zip`;
     document.body.appendChild(link);
     link.click();
@@ -139,7 +140,7 @@ const Sidebar = ({ onLayerToggle, isThematicMode, onThematicModeToggle, isSideba
 
     const query = selected.join(",");
     const link = document.createElement("a");
-    link.href = `http://localhost:8001/api/shapefiles/batch?layers=${encodeURIComponent(query)}`;
+    link.href = getApiUrl(`/api/shapefiles/batch?layers=${encodeURIComponent(query)}`, 'download');
     link.download = `selected_layers.zip`;
     document.body.appendChild(link);
     link.click();
@@ -242,7 +243,7 @@ const Sidebar = ({ onLayerToggle, isThematicMode, onThematicModeToggle, isSideba
                             <button onClick={() => setConfirmDownloadLayer(dataset.layer_name)}>
                               Download
                             </button>
-                            <button onClick={() => window.open(`http://localhost:8000/api/metadata_html/${dataset.layer_name}`, "_blank")}>
+                            <button onClick={() => window.open(getApiUrl(`/api/metadata_html/${dataset.layer_name}`), "_blank")}>
                               View Metadata
                             </button>
                           </div>

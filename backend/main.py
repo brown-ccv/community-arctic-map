@@ -33,7 +33,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-DB_PATH = "cpad.sqlite"
+DB_PATH = os.getenv("CPAD_SQLITE_PATH", "cpad.sqlite")
 
 def get_available_layers():
     try:
@@ -170,7 +170,8 @@ def get_metadata_html(layer_name: str):
         print(f"Layer name: {layer_name}")
         print(f"🔍 Searching for layer: {normalized_name}")
 
-        with open("metadata.html", "r", encoding="utf-8") as f:
+        metadata_path = os.getenv("METADATA_HTML_PATH", "metadata.html")
+        with open(metadata_path, "r", encoding="utf-8") as f:
             soup = BeautifulSoup(f, "html.parser")
             print("✅ Metadata file loaded.")
 

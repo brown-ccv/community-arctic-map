@@ -5,6 +5,7 @@ import FeatureHighlighter from './FeatureHighlighter';
 import SearchBar from './SearchBar';
 import DrawControls from './DrawControls';
 import SpatialQueryPanel from './SpatialQueryPanel';
+import { getApiUrl } from '../config/api';
 import bbox from '@turf/bbox';
 
 // Security utility functions - placed outside the component
@@ -80,7 +81,7 @@ const Map = ({
   
   // Fetch layer hierarchy to get display names
   useEffect(() => {
-    fetch("http://localhost:8000/api/layer_hierarchy")
+    fetch(getApiUrl("/api/layer_hierarchy"))
       .then((res) => res.json())
       .then((data) => {
         const displayNameMapping = {};
@@ -332,7 +333,7 @@ const Map = ({
       if (!mapboxMap.getSource(sourceId) && !loadingLayers.current.has(layerName)) {
         loadingLayers.current.add(layerName);
         
-        fetch(`http://localhost:8000/api/geojson/${layerName}`)
+        fetch(getApiUrl(`/api/geojson/${layerName}`))
           .then((res) => {
             if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
             return res.json();

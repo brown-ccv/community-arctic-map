@@ -18,7 +18,7 @@ app.add_middleware(
 )
 
 # Directories
-ZIP_DIR = "zipped_shapefiles"
+ZIP_DIR = os.getenv("ZIPPED_SHAPEFILES_PATH", "zipped_shapefiles")
 BUNDLE_DIR = "bundled_zips"
 
 # Ensure the bundle directory exists
