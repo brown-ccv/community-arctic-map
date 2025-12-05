@@ -1,0 +1,51 @@
+# Cloud Build configuration for building and pushing Docker image
+# This file is used by Google Cloud Build to build the Docker image
+
+steps:
+  # Step 1: Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_ARTIFACT_REGISTRY_REPO}/${_SERVICE_NAME}:${SHORT_SHA}'
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_ARTIFACT_REGISTRY_REPO}/${_SERVICE_NAME}:latest'
+      - '-f'
+      - '.deployment/Dockerfile'
+      - '--build-arg'
+      - 'VITE_MAPBOX_ACCESS_TOKEN=${_VITE_MAPBOX_ACCESS_TOKEN}'
+      - '--build-arg'
+      - 'VITE_API_BASE_URL=/api'
+      - '--build-arg'
+      - 'VITE_DOWNLOAD_API_URL=/api/download'
+      - '.'
+    id: 'build-image'
+
+  # Step 2: Push the Docker image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_ARTIFACT_REGISTRY_REPO}/${_SERVICE_NAME}:${SHORT_SHA}'
+    id: 'push-image-sha'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_ARTIFACT_REGISTRY_REPO}/${_SERVICE_NAME}:latest'
+    id: 'push-image-latest'
+
+# Substitutions for Cloud Build (can be overridden)
+substitutions:
+  _REGION: 'us-east1'
+  _ARTIFACT_REGISTRY_REPO: 'arctic-map-repo'
+  _SERVICE_NAME: 'community-arctic-map'
+  _VITE_MAPBOX_ACCESS_TOKEN: ''  # Should be provided via --substitutions flag
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_8'
+
+# Store image location in build output
+images:
+  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_ARTIFACT_REGISTRY_REPO}/${_SERVICE_NAME}:${SHORT_SHA}'
+  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_ARTIFACT_REGISTRY_REPO}/${_SERVICE_NAME}:latest'

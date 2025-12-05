@@ -1,0 +1,276 @@
+# GitHub Actions Workflow for Deploying Community Arctic Map to Google Cloud Run
+name: 🚀 Deploy to Google Cloud Run
+
+on:
+  # Manual trigger with environment selection
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        type: choice
+        options:
+          - production
+          - staging
+        default: 'staging'
+      skip_tests:
+        description: 'Skip validation tests'
+        required: false
+        type: boolean
+        default: false
+
+# Environment variables used across all jobs
+env:
+  GCP_REGION: us-east1
+  ARTIFACT_REGISTRY_REPO: arctic-map-repo
+  SERVICE_NAME: community-arctic-map
+
+jobs:
+  # =============================================================================
+  # Phase 1: PREPARE - Validation, setup, authentication
+  # =============================================================================
+  prepare:
+    name: 🔍 Prepare and Validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    outputs:
+      project_id: ${{ steps.setup.outputs.project_id }}
+      image_tag: ${{ steps.setup.outputs.image_tag }}
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 🔧 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: 📦 Install backend dependencies
+        if: ${{ !inputs.skip_tests }}
+        run: |
+          cd backend
+          pip install -r requirements.txt
+        timeout-minutes: 5
+
+      - name: 📦 Install frontend dependencies
+        if: ${{ !inputs.skip_tests }}
+        run: |
+          cd frontend
+          npm ci
+        timeout-minutes: 5
+
+      - name: 🧪 Lint frontend code
+        if: ${{ !inputs.skip_tests }}
+        run: |
+          cd frontend
+          npm run lint || echo "⚠️ Linting warnings detected"
+        continue-on-error: true
+
+      - name: 🏗️ Build frontend
+        if: ${{ !inputs.skip_tests }}
+        run: |
+          cd frontend
+          # Use dummy values for build-time validation
+          # Note: This is a test build to validate the code compiles
+          # The actual deployment will use the real Mapbox token from GitHub Secrets
+          # Using a properly formatted token to match validation: pk. + 50+ chars
+          export VITE_MAPBOX_ACCESS_TOKEN=pk.eyJ1IjoidGVzdCIsImEiOiJ0ZXN0X3Rva2VuX2Zvcl92YWxpZGF0aW9uX29ubHlfMTIzNDU2Nzg5MCJ9
+          export VITE_API_BASE_URL=/api
+          export VITE_DOWNLOAD_API_URL=/api/download
+          npm run build | tee build.log
+        timeout-minutes: 10
+
+      - name: 📊 Setup deployment metadata
+        id: setup
+        run: |
+          echo "project_id=${{ secrets.GCP_PROJECT_ID }}" >> $GITHUB_OUTPUT
+          echo "image_tag=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+          echo "✅ Prepare phase completed successfully"
+
+      - name: 🔐 Validate required secrets
+        run: |
+          echo "Checking required secrets..."
+          
+          if [ -z "${{ secrets.GCP_PROJECT_ID }}" ]; then
+            echo "❌ GCP_PROJECT_ID secret is missing"
+            exit 1
+          fi
+          
+          if [ -z "${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}" ]; then
+            echo "❌ GCP_SERVICE_ACCOUNT_KEY secret is missing"
+            exit 1
+          fi
+          
+          if [ -z "${{ secrets.GOOGLE_SHEET_ID }}" ]; then
+            echo "⚠️ GOOGLE_SHEET_ID secret is missing (optional)"
+          fi
+          
+          if [ -z "${{ secrets.VITE_MAPBOX_ACCESS_TOKEN }}" ]; then
+            echo "⚠️ VITE_MAPBOX_ACCESS_TOKEN secret is missing (optional)"
+          fi
+          
+          echo "✅ Required secrets validation completed"
+
+  # =============================================================================
+  # Phase 2: DEPLOY - Build and deploy to Cloud Run
+  # =============================================================================
+  deploy:
+    name: 🚀 Build and Deploy
+    runs-on: ubuntu-latest
+    needs: prepare
+    timeout-minutes: 30
+    environment: ${{ inputs.environment || 'staging' }}
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🔐 Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+
+      - name: 🔧 Setup Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: 🔐 Configure Docker for Artifact Registry
+        run: |
+          gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev --quiet
+          echo "✅ Docker configured for Artifact Registry"
+
+      - name: 🏗️ Build Docker image
+        run: |
+          docker build \
+            -f .deployment/Dockerfile \
+            -t ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:${{ needs.prepare.outputs.image_tag }} \
+            -t ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:latest \
+            --build-arg VITE_MAPBOX_ACCESS_TOKEN=${{ secrets.VITE_MAPBOX_ACCESS_TOKEN }} \
+            --build-arg VITE_API_BASE_URL=/api \
+            --build-arg VITE_DOWNLOAD_API_URL=/api/download \
+            . 2>&1 | tee docker-build.log
+          
+          echo "✅ Docker image built successfully"
+        timeout-minutes: 15
+
+      - name: 📤 Push Docker image to Artifact Registry
+        run: |
+          docker push ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:${{ needs.prepare.outputs.image_tag }}
+          docker push ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:latest
+          echo "✅ Docker images pushed successfully"
+        timeout-minutes: 10
+
+      - name: 🚀 Deploy to Cloud Run
+        run: |
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image=${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:${{ needs.prepare.outputs.image_tag }} \
+            --region=${{ env.GCP_REGION }} \
+            --platform=managed \
+            --allow-unauthenticated \
+            --service-account=${{ env.SERVICE_NAME }}-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com \
+            --memory=4Gi \
+            --cpu=2 \
+            --timeout=300 \
+            --max-instances=10 \
+            --min-instances=0 \
+            --set-env-vars="PORT=8080,GOOGLE_SHEET_ID=${{ secrets.GOOGLE_SHEET_ID }},GOOGLE_SHEET_GID=${{ secrets.GOOGLE_SHEET_GID }},GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}" \
+            --no-cpu-throttling \
+            --quiet 2>&1 | tee deploy.log
+          
+          echo "✅ Cloud Run deployment completed"
+        timeout-minutes: 10
+
+      - name: 🔍 Get service URL
+        id: get-url
+        run: |
+          SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region=${{ env.GCP_REGION }} \
+            --format='value(status.url)')
+          echo "service_url=$SERVICE_URL" >> $GITHUB_OUTPUT
+          echo "🌐 Service URL: $SERVICE_URL"
+
+      - name: ✅ Verify deployment
+        run: |
+          echo "Waiting for service to be ready..."
+          sleep 10
+          
+          SERVICE_URL="${{ steps.get-url.outputs.service_url }}"
+          
+          # Test health endpoint
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$SERVICE_URL/api/layer_hierarchy" || echo "000")
+          
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Service is responding correctly (HTTP $HTTP_CODE)"
+          else
+            echo "⚠️ Service returned HTTP $HTTP_CODE"
+            echo "Please check the logs: gcloud run logs read ${{ env.SERVICE_NAME }} --region=${{ env.GCP_REGION }}"
+          fi
+
+      - name: 📝 Deployment summary
+        if: always()
+        run: |
+          echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ inputs.environment || 'staging' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Image Tag:** ${{ needs.prepare.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Service URL:** ${{ steps.get-url.outputs.service_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📋 Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "1. Visit the service URL to verify the deployment" >> $GITHUB_STEP_SUMMARY
+          echo "2. Upload the cpad.sqlite file to Cloud Storage" >> $GITHUB_STEP_SUMMARY
+          echo "3. Update the Cloud Run service to mount the database" >> $GITHUB_STEP_SUMMARY
+
+  # =============================================================================
+  # Phase 3: TEARDOWN - Cleanup and rollback if needed
+  # =============================================================================
+  teardown:
+    name: 🧹 Cleanup
+    runs-on: ubuntu-latest
+    needs: [prepare, deploy]
+    if: always()
+    timeout-minutes: 5
+    
+    steps:
+      - name: 📊 Log deployment status
+        run: |
+          if [ "${{ needs.deploy.result }}" = "success" ]; then
+            echo "✅ Deployment completed successfully"
+          elif [ "${{ needs.deploy.result }}" = "failure" ]; then
+            echo "❌ Deployment failed"
+            echo "Check the deploy job logs for details"
+          elif [ "${{ needs.deploy.result }}" = "cancelled" ]; then
+            echo "⚠️ Deployment was cancelled"
+          fi
+
+      - name: 🔐 Authenticate to Google Cloud
+        if: needs.deploy.result == 'failure'
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+
+      - name: 🔧 Setup Cloud SDK
+        if: needs.deploy.result == 'failure'
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: 🔄 Rollback on failure (optional)
+        if: needs.deploy.result == 'failure'
+        run: |
+          echo "⚠️ Deployment failed. Consider manual rollback if needed."
+          echo "To rollback, run:"
+          echo "gcloud run services update-traffic ${{ env.SERVICE_NAME }} --to-revisions=PREVIOUS_REVISION=100 --region=${{ env.GCP_REGION }}"
