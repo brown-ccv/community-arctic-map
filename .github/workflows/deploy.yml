@@ -147,31 +147,41 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
-
-      - name: 🔐 Configure Docker for Artifact Registry
+      
+      - name: Configure Docker Auth
+        shell: bash
         run: |
-          gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev --quiet
-          echo "✅ Docker configured for Artifact Registry"
+          gcloud auth configure-docker ${{ env.gcp_registry_url }}
 
-      - name: 🏗️ Build Docker image
-        run: |
-          docker build \
-            -f .deployment/Dockerfile \
-            -t ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:${{ needs.prepare.outputs.image_tag }} \
-            -t ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:latest \
-            --build-arg VITE_MAPBOX_ACCESS_TOKEN=${{ secrets.VITE_MAPBOX_ACCESS_TOKEN }} \
-            --build-arg VITE_API_BASE_URL=/api \
-            --build-arg VITE_DOWNLOAD_API_URL=/api/download \
-            . 2>&1 | tee docker-build.log
+      - uses: docker/build-push-action@v6
+        with:
+          push: true
+          tags: ${{ env.gcp_registry_url }}/${{ env.gcp_project_id }}/${{ env.gcp_container_registry }}/${{ env.image }}:latest
+
+      # - name: 🔐 Configure Docker for Artifact Registry
+      #   run: |
+      #     gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev --quiet
+      #     echo "✅ Docker configured for Artifact Registry"
+
+      # - name: 🏗️ Build Docker image
+      #   run: |
+      #     docker build \
+      #       -f .deployment/Dockerfile \
+      #       -t ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:${{ needs.prepare.outputs.image_tag }} \
+      #       -t ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:latest \
+      #       --build-arg VITE_MAPBOX_ACCESS_TOKEN=${{ secrets.VITE_MAPBOX_ACCESS_TOKEN }} \
+      #       --build-arg VITE_API_BASE_URL=/api \
+      #       --build-arg VITE_DOWNLOAD_API_URL=/api/download \
+      #       . 2>&1 | tee docker-build.log
           
-          echo "✅ Docker image built successfully"
-        timeout-minutes: 15
+      #     echo "✅ Docker image built successfully"
+      #   timeout-minutes: 15
 
-      - name: 📤 Push Docker image to Artifact Registry
-        run: |
-          docker push ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:${{ needs.prepare.outputs.image_tag }}
-          docker push ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:latest
-          echo "✅ Docker images pushed successfully"
+      # - name: 📤 Push Docker image to Artifact Registry
+      #   run: |
+      #     docker push ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:${{ needs.prepare.outputs.image_tag }}
+      #     docker push ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.SERVICE_NAME }}:latest
+      #     echo "✅ Docker images pushed successfully"
         timeout-minutes: 10
 
       - name: 🚀 Deploy to Cloud Run
